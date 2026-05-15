@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const initDb = require('./db');
 
 const app = express();
@@ -7,6 +8,10 @@ const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// Serve built React frontend
+const distPath = path.join(__dirname, '../client/dist');
+app.use(express.static(distPath));
 
 const db = initDb();
 
@@ -277,6 +282,11 @@ app.post('/api/compare', (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+// Catch-all: serve React app for any non-API route
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`SmartGrocery server running on http://localhost:${PORT}`);
 });
