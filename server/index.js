@@ -210,13 +210,27 @@ app.post('/api/compare', (req, res) => {
        WHERE s.product_id IN (${placeholders})`
     ).all(...productIds);
 
+    // Collect substitute product IDs and fetch their prices
+    const substituteIds = [...new Set(subRows.map(r => r.substitute_id))];
+    const subPriceMap = {}; // subPriceMap[storeId][productId] = price
+    if (substituteIds.length > 0) {
+      const subPlaceholders = substituteIds.map(() => '?').join(',');
+      const subPriceRows = db.prepare(
+        `SELECT store_id, product_id, price FROM prices WHERE product_id IN (${subPlaceholders})`
+      ).all(...substituteIds);
+      for (const row of subPriceRows) {
+        if (!subPriceMap[row.store_id]) subPriceMap[row.store_id] = {};
+        subPriceMap[row.store_id][row.product_id] = row.price;
+      }
+    }
+
     const substitutions = [];
     for (const row of subRows) {
-      // Find the cheapest store price for the substitute
+      // Find the cheapest store price for the substitute product
       let bestSubPrice = Infinity;
       let bestSubStore = null;
       for (const store of stores) {
-        const subPrice = (priceMap[store.id] || {})[row.substitute_id];
+        const subPrice = (subPriceMap[store.id] || {})[row.substitute_id];
         if (subPrice != null && subPrice < bestSubPrice) {
           bestSubPrice = subPrice;
           bestSubStore = store;
